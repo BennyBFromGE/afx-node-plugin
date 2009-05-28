@@ -49,10 +49,10 @@
     <div class="demo_holder"><div id="blindRight" class="demo">{node}.afx.blindRight</div></div>
     <div class="demo_holder"><div id="blindLeft" class="demo">{node}.afx.blindLeft</div></div>
 
-    <div class="demo_holder"><div id="blindDown" class="demo">{node}.afx.blindDown (binded)</div></div>
-    <div class="demo_holder"><div id="blindUp" class="demo">{node}.afx.blindUp (binded)</div></div>
-    <div class="demo_holder"><div id="blindRight" class="demo">{node}.afx.blindRight (binded)</div></div>
-    <div class="demo_holder"><div id="blindLeft" class="demo">{node}.afx.blindLeft (binded)</div></div>
+    <div class="demo_holder"><div id="bblindDown" class="demo">{node}.afx.blindDown (binded)</div></div>
+    <div class="demo_holder"><div id="bblindUp" class="demo">{node}.afx.blindUp (binded)</div></div>
+    <div class="demo_holder"><div id="bblindRight" class="demo">{node}.afx.blindRight (binded)</div></div>
+    <div class="demo_holder"><div id="bblindLeft" class="demo">{node}.afx.blindLeft (binded)</div></div>
     <div class="demo_holder"><div id="fold" class="demo" >{node}.afx.fold</div></div>
     <div class="demo_holder"><div id="unFold" class="demo">{node}.afx.unFold</div></div>
 
@@ -89,9 +89,25 @@
 									});
 								});
 							});
-							break; 
+							break;  
+							case "bblindDown":
+							this.afx[id.substr(1)]( { bind: "bottom" },function() { 
+								this.afx.appear(); 
+							});
+							break;
+							case "bblindUp": 
+							this.afx[id.substr(1)]( { bind: "bottom" } );
+							break;
+							case "bblindRight":
+							this.afx[id.substr(1)]( { bind: "right" }, function() { 
+								this.afx.appear(); 
+							});
+							break;
+							case "bblindLeft": 
+							this.afx[id.substr(1)]( { bind: "right" });
+							break;
 							case "blindUp":
-							case "blindLeft":
+							case "blindLeft":  
 							case "fade":
 							case "fold": 
 							case "shrink":

@@ -3,6 +3,7 @@ YUI.add("afx-node-plugin", function(Y) {
 
 	var NodeAFX=function(config){ 
 		NodeAFX.superclass.constructor.apply(this,arguments);
+		this.addAtt("revert", { value: config.revert || false });
 		this.addAtt("delay", { value: config.delay || false });
 		this.addAtt("ghost", { value: config.ghost || false });
 		this.addAtt("bind", { value: config.bind });
@@ -11,9 +12,10 @@ YUI.add("afx-node-plugin", function(Y) {
 	NodeAFX.NS="afx";
 
 	var afx = (function() { 
-	    //Animation attribute methods
+
+		//Animation attribute methods
 	    var _attrs = [];
-		function addAttributes(attrs) {  
+		function addAttributes(attrs) {   
 	        for(var key in attrs) {  
 	            this.addAtt(key, { value: attrs[key] }); 
 	            _attrs.push(key);
@@ -28,42 +30,72 @@ YUI.add("afx-node-plugin", function(Y) {
 	    
 	    //Node styling methods
 	    function styleNode(styles) { 
-	        var node = this.get("node");
-	        for(var prop in styles) { node.setStyle(prop, styles[prop]); }
+	        var node = this.get("node"); 
+	        for(var prop in styles) { if(styles[prop] !== "NaNpx") { node.setStyle(prop, styles[prop]); } } 
 	    };
 	    
 	    //Animation state methods
-	    function setUpPreState(fn) { 
-	        return fn.call(this);
-	    };
 	    function setUpPostState(fn) { 
-	        var onEnd = function() {  
-	            this.unsubscribe("end", onEnd);
-	            fn.call(this); 
-	        };
+	        var onEnd = function() {   
+	            this.unsubscribe("end", onEnd); 
+	            fn.call(this);  
+	        }; 
 	        this.on("end", onEnd, this);  
 	    };
+	    function setUpPreState(fn) {  
+	        return fn.call(this); 
+	    };
+		
+		function overrideConfig(config) { 
+			if(config) { 
+				this.set("revert", config.revert || false );
+				this.set("delay", config.delay || false );
+				this.set("ghost", config.ghost || false );
+				this.set("bind", config.bind );
+				
+				//Other from/to mixin?
+			}  
+		};
+		
 	    function animate(f, t, e) { 
-	        var from = this.get("from") || {}, to = this.get("to") || {}, easing = e || Y.Easing.easeOut;
+	        var from = this.get("from") || {}, to = this.get("to") || {}, easing = e || Y.Easing.easeOut; 
 		    from = Y.merge(f); to = Y.merge(t); 
-		    this.set("from", from); this.set("to", to); this.set("easing", easing);
+		    this.set("from", from); this.set("to", to); this.set("easing", easing); 
 		    if(!this.get("delay")) { this.run(); }
 	    };
 
-		function perform(anim) { 
+		//Animation methods
+		function prep(props) { 
+			var animProps = {}; 
+			for(var i = 0, len = props.length; i < len; i++) { 
+				var prop = props[i]; 
+				if(Y.Lang.isFunction(prop)) { animProps.chain = prop; } 
+				else if(Y.Lang.isObject(prop)) { animProps.config = prop; } 
+			};
+			return animProps; 
+		};  
+		function perform(anim) {  
+			//Initial attributes & styling
 			addAttributes.call(this, anim.attributes);
 			styleNode.call(this, anim.styles);
 			
-			var preState = setUpPreState.call(this, anim.preState);
+			//Set up post animation state
 			setUpPostState.call(this, anim.postState);
+			
+			//Set up pre animation state mixing in any dynamic config values
+			//Call animation with states set
+			overrideConfig.call(this, anim.config);
+			var preState = setUpPreState.call(this, anim.preState);
 			animate.call(this, preState.from, preState.to, preState.easing);
 		};
 		
 	    return {  
-	        hide: function() { this.get("node").setStyle("display", "none").setStyle("visibility", "none"); },
-	        show: function() { this.get("node").setStyle("display", "block").setStyle("visibility", "visible"); }, 
-		    highlight: function(a) { 
+	        hide: function() { this.get("node").setStyle("display", "none"); }, /* IE is not liking this .setStyle("visibility", "none"); */ 
+	        show: function() { this.get("node").setStyle("display", "block"); }, /* IE is not liking this .setStyle("visibility", "visible");  */ 
+		    highlight: function() { 
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {}, 
 					styles: { }, 
 					preState: function() { 
@@ -73,32 +105,38 @@ YUI.add("afx-node-plugin", function(Y) {
 						};
 					}, 
 					postState: function() { 
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				}); 
 		    }, 
-		    fade: function(a) {   
+		    fade: function() {   
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: { }, 
 					styles: { }, 
 					preState: function() {  return { from: { opacity: 1 }, to: { opacity: 0 } }; }, 
-					postState: function() {  if(a) { a.call(this.get("node")); } }
+					postState: function() {  if(animProps.chain) { animProps.chain.call(this.get("node")); } }
 				}); 
 		    },
-		    appear: function(a) { 
+		    appear: function() { 
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: { }, 
 					styles: { opacity: 0 }, 
 					preState: function() {   
-						this.show();
+						this.show(); 
 						
 						return { from: { opacity: 0 }, to: { opacity: 1 } }; 
 					}, 
-					postState: function() { if(a) { a.call(this.get("node")); } }
+					postState: function() { if(animProps.chain) { animProps.chain.call(this.get("node")); } }
 				});  
 		    }, 
-		    blindUp: function(a) {   
+		    blindUp: function() {   
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origTop: parseInt(this.get("node").getStyle("top"))
@@ -125,18 +163,19 @@ YUI.add("afx-node-plugin", function(Y) {
 					postState: function() { 
 		                if(this.get("bind") === "bottom") { 
 		                    styleNode.call(this, { top: this.get("origTop") + "px" }); 
-		                } else { 
-		                    this.hide();    
+		                } else {  
 		                    styleNode.call(this, { height: this.get("origHeight") + "px" });
 		                } 
 			            
 			            //Here's where one adds tack on animation
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				});
 		    }, 
-		    blindDown: function(a) {   
+		    blindDown: function() {   
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origTop: parseInt(this.get("node").getStyle("top"))
@@ -148,7 +187,7 @@ YUI.add("afx-node-plugin", function(Y) {
 			            to.height = this.get("origHeight") + "px"
 			            if(this.get("ghost")) { from.opacity = 0; to.opacity = 1; }
 			            
-			            if(this.get("bind") === "bottom") {  
+			            if(this.get("bind") === "bottom") { 
 			                from.height = this.get("origHeight") + "px"; 
 			                to.height = "0px";
 			                from.top = this.get("origTop");
@@ -159,8 +198,7 @@ YUI.add("afx-node-plugin", function(Y) {
 						return { from: from, to: to };
 					}, 
 					postState: function() { 
-			            if(this.get("bind") === "bottom") { 
-			                this.hide();
+			            if(this.get("bind") === "bottom") {  
 			                styleNode.call(this, { 
 			                    top: this.get("origTop") + "px", 
 			                    height: this.get("origHeight") + "px", 
@@ -171,12 +209,14 @@ YUI.add("afx-node-plugin", function(Y) {
 			            }
 			            
 			            //Here's where one adds tack on animation
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				});
 		    }, 
-		    blindRight: function(a) {   
+		    blindRight: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {  
 		                origWidth: parseInt(this.get("node").getStyle("width")), 
 		                origLeft: parseInt(this.get("node").getStyle("left"))
@@ -198,8 +238,7 @@ YUI.add("afx-node-plugin", function(Y) {
 						return { from: from, to: to };
 					}, 
 					postState: function() { 
-			            if(this.get("bind") === "right") { 
-			                this.hide();
+			            if(this.get("bind") === "right") {  
 			                styleNode.call(this, { 
 			                    left: this.get("origLeft") + "px", 
 			                    width: this.get("origWidth") + "px", 
@@ -210,12 +249,14 @@ YUI.add("afx-node-plugin", function(Y) {
 			            }
 			            
 			            //Here's where one adds tack on animation
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				}); 
 		    }, 
-		    blindLeft: function(a) {  
+		    blindLeft: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origWidth: parseInt(this.get("node").getStyle("width")), 
 		                origLeft: parseInt(this.get("node").getStyle("left"))
@@ -223,7 +264,7 @@ YUI.add("afx-node-plugin", function(Y) {
 					styles: { overflow: "hidden" }, 
 					preState: function() { 
 						var from = {}, to = {};
-			            from.width = this.get("origWidth") + "px";
+			            //from.width = this.get("origWidth") + "px";
 			            to.width = "0px";
 			            if(this.get("ghost")) { from.opacity = 1; to.opacity = 0; }
 			            
@@ -235,7 +276,7 @@ YUI.add("afx-node-plugin", function(Y) {
 		                        from.opacity = 0; to.opacity = 1; 
 		                    }
 		                    this.show();
-		                    from.height = "0px"; to.height = this.get("origWidth") + "px";
+		                    from.width = "0px"; to.width = this.get("origWidth") + "px";
 			                from.left = this.get("origLeft") + this.get("origWidth") + "px";
 			                to.left = this.get("origLeft") + "px"; 
 			            }
@@ -245,22 +286,23 @@ YUI.add("afx-node-plugin", function(Y) {
 					postState: function() { 
 			            if(this.get("bind") === "right") { 
 			            
-			            } else { 
-			                this.hide();
+			            } else {   
 			                styleNode.call(this, { 
 			                    left: this.get("origLeft") + "px", 
 			                    width: this.get("origWidth") + "px", 
 			                    opacity: 1
-			                });
+			                }); 
 			            } 
 			            
 			            //Here's where one adds tack on animation
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				});
 		    }, 
-		    fold: function(a) {   
+		    fold: function() {   
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width")) 
@@ -284,20 +326,24 @@ YUI.add("afx-node-plugin", function(Y) {
 								
 								return { from: from, to: to };
 							}, 
-							postState: function() { 
-			    	            this.hide();
-			    	            styleNode.call(this, { height: this.get("origHeight") + "px", width: this.get("origWidth") + "px" });
+							postState: function() {  
+			    	            styleNode.call(this, { 
+									height: this.get("origHeight") + "px", 
+									width: this.get("origWidth") + "px" 
+								});
 				                
-								if(a) { a.call(this.get("node")); }
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 							}
 						});
 					}
 				}); 
 		    }, 
-		    unFold: function(a) {   
+		    unFold: function() {   
 		        this.hide();
 				
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width")) 
@@ -328,14 +374,16 @@ YUI.add("afx-node-plugin", function(Y) {
 								return { from: eFrom, to: eTo };
 							}, 
 							postState: function() { 
-								if(a) { a.call(this.get("node")); }
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 							}
 						});
 					}
 				});
 		    }, 
-		    shakeLR: function(a) {  
+		    shakeLR: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                done: false, 
 		                offset: 10, 
@@ -371,7 +419,7 @@ YUI.add("afx-node-plugin", function(Y) {
 						};
 						var onEnd = function() {   
 							if(this.get("done")) { 
-								if(a) { a.call(this.get("node")); }
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 							} else {  
 								perform.call(this, {
 									attributes: {}, 
@@ -390,8 +438,10 @@ YUI.add("afx-node-plugin", function(Y) {
 					}
 				}); 
 		    }, 
-		    shakeTB: function(a) {  
+		    shakeTB: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                done: false, 
 		                offset: 10, 
@@ -428,7 +478,7 @@ YUI.add("afx-node-plugin", function(Y) {
 		    	        
 		    	        var onEnd = function() {   
 		    	            if(this.get("done")) {  
-								if(a) { a.call(this.get("node")); }
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 		                    } else {   
 								perform.call(this, { 
 									attributes: {},
@@ -447,8 +497,10 @@ YUI.add("afx-node-plugin", function(Y) {
 					}
 				}); 
 		    }, 
-		    drop: function(a) { 
+		    drop: function() { 
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origTop: parseInt(this.get("node").getStyle("top"))
@@ -460,12 +512,14 @@ YUI.add("afx-node-plugin", function(Y) {
 					postState: function() { 
 			            styleNode.call(this, { top: this.get("origTop") + "px", opacity: 1 });
 						
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				}); 
 		    }, 
-		    pulse: function(a) {  
+		    pulse: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config,  
 					attributes: {   
 		                done: false, 
 		                maxCount: 9, 
@@ -500,7 +554,7 @@ YUI.add("afx-node-plugin", function(Y) {
 			            };
 			            var onEnd = function() {
 			                if(this.get("done")) {   
-								if(a) { a.call(this.get("node")); }
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 			                } else {
 								perform.call(this, { 
 									attributes: {}, 
@@ -520,8 +574,10 @@ YUI.add("afx-node-plugin", function(Y) {
 					}
 				}); 
 		    }, 
-		    shrink: function(a) {    
+		    shrink: function() {    
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width"))
@@ -530,9 +586,7 @@ YUI.add("afx-node-plugin", function(Y) {
 					preState: function() { 
 						return { from: { fontSize:"100%" , opacity:1 }, to: {  fontSize:"0%" , height:0, width:0, opacity: 0 } };
 					}, 
-					postState: function() { 
-		                this.hide();  
-		                
+					postState: function() {  
 		                styleNode.call(this, { 
 		                    opacity: 1, 
 		                    fontSize: "100%", 
@@ -541,12 +595,14 @@ YUI.add("afx-node-plugin", function(Y) {
 		                });
 		                
 		                //Here's where one adds tack on animation
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				}); 
 		    }, 
-		    grow: function(a) {  
+		    grow: function() {  
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width"))
@@ -556,17 +612,21 @@ YUI.add("afx-node-plugin", function(Y) {
 						return { from: { fontSize:"0%", opacity:0, height:0, width: 0}, to: { fontSize: "100%", opacity:1, height: this.get("origHeight"), width: this.get("origWidth") } };
 					}, 
 					postState: function() { 
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				}); 
 		    }, 
-		    tv: function(a) {
+		    tv: function() {
+				var animProps = prep(arguments); 
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {   
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
-		                origWidth: parseInt(this.get("node").getStyle("width"))
+		                origWidth: parseInt(this.get("node").getStyle("width")), 
+		                origTop: parseInt(this.get("node").get("offsetTop")), 
+		                origLeft: parseInt(this.get("node").get("offsetLeft"))
 		            }, 
-					styles: { overflow: "hidden" }, 
+					styles: { position: "", overflow: "hidden" }, 
 					preState: function() { 
 						return { from: { top:0 }, to: { top: (this.get("origHeight")/2), height:5 }, easing: Y.Easing.easeIn };
 					}, 
@@ -581,32 +641,37 @@ YUI.add("afx-node-plugin", function(Y) {
 											easing: Y.Easing.easeIn
 										};
 							}, 
-							postState: function() {  
-			                    this.hide();
+							postState: function() {   
 			                    styleNode.call(this, { 
+									position: "absolute", 
 			                        height: this.get("origHeight") + "px", 
 			                        width: this.get("origWidth") + "px", 
-			                        top: "", 
-			                        left: "", 
+				                    top: this.get("origTop") + "px", 
+				                    left: this.get("origLeft") + "px", 
 			                        opacity: 1
-			                    }); 
-			                    //Here's where one adds tack on animation
-								if(a) { a.call(this.get("node")); }
+			                    });  
+								
+			                    //Here's where one adds tack on animation 
+								if(animProps.chain) { animProps.chain.call(this.get("node")); }
 							}
 						}); 
 					}
 				}); 
 		    }, 
-		    shadow: function(a) { 
-	    	    perform.call(this,  {
+		    shadow: function() { 
+				var animProps = prep(arguments);
+				perform.call(this, { 
+					config: animProps.config, 
 					attributes: {}, 
 					styles: {}, 
 					preState: function() { return { from: {}, to: {} }; }, 
-					postState: function() { if(a) { a.call(this.get("node")); } }
+					postState: function() { if(animProps.chain) { animProps.chain.call(this.get("node")); } }
 				});
 		    }, 
-		    puff: function(a) {
+		    puff: function() {
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: { 
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width")), 
@@ -642,12 +707,14 @@ YUI.add("afx-node-plugin", function(Y) {
 		                    opacity: 1
 		                }); 
 						
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				});
 		    }, 
-		    pagePuff: function(a) {
+		    pagePuff: function() {
+				var animProps = prep(arguments);
 				perform.call(this, { 
+					config: animProps.config, 
 					attributes: { 
 		                origHeight: parseInt(this.get("node").getStyle("height")), 
 		                origWidth: parseInt(this.get("node").getStyle("width")), 
@@ -683,7 +750,7 @@ YUI.add("afx-node-plugin", function(Y) {
 		                    // opacity: 1
 		                // }); 
 						
-						if(a) { a.call(this.get("node")); }
+						if(animProps.chain) { animProps.chain.call(this.get("node")); }
 					}
 				});
 		    }

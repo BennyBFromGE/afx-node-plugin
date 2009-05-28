@@ -690,7 +690,7 @@ YUI.add("afx-node-plugin", function(Y) {
 	    };
 	})();
 
-	Y.extend(NodeAFX,NodeFX,afx);
+	Y.extend(NodeAFX,Y.plugin.NodeFX,afx);
 	Y.plugin.NodeAFX=NodeAFX;
 	
 }, '3.0.0pr2' ,{requires:['node', 'anim']});

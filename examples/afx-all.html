@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <title>YUI 3.0 PR 2 Advanced Effects Plugin - Port of Dav Glass's YUI Effects Widget 0.8</title>  
+	<script src="http://yui.yahooapis.com/3.0.0pr2/build/yui/yui-min.js" type="text/javascript"></script>
+				
+	<style type="text/css" media="screen">
+		/*margin and padding on body element
+		  can introduce errors in determining
+		  element position and are not recommended;
+		  we turn them off as a foundation for YUI
+		  CSS treatments. */
+		body {
+			margin:0;
+			padding:0;
+		}
+		.demo {
+			height: 150px;
+			width: 150px;
+			border: 2px solid black;
+			background-color: #ccc;
+			position: relative;
+			font-size: 100%;
+			whitespace:normal;
+		}
+		.demo_holder {
+			height: 152px;
+			width: 152px;
+			margin: 15px;
+			float: left;
+			cursor: pointer;
+			cursor: hand;
+			
+		}
+
+		p {
+			padding: .25em;
+		}
+	</style>
+</head>
+<body> 
+	<div class="demo_holder"><div id="shadow" class="demo">{node}.afx.shadow</div></div>
+	<div class="demo_holder"><div id="highlight" class="demo">{node}.afx.highlight</div></div>
+
+    <div class="demo_holder"><div id="fade" class="demo">{node}.afx.fade</div></div>
+    <div class="demo_holder"><div id="appear" class="demo">{node}.afx.appear</div></div>
+    <div class="demo_holder"><div id="blindDown" class="demo">{node}.afx.blindDown</div></div>
+    <div class="demo_holder"><div id="blindUp" class="demo">{node}.afx.blindUp</div></div>
+    <div class="demo_holder"><div id="blindRight" class="demo">{node}.afx.blindRight</div></div>
+    <div class="demo_holder"><div id="blindLeft" class="demo">{node}.afx.blindLeft</div></div>
+
+    <div class="demo_holder"><div id="blindDown" class="demo">{node}.afx.blindDown (binded)</div></div>
+    <div class="demo_holder"><div id="blindUp" class="demo">{node}.afx.blindUp (binded)</div></div>
+    <div class="demo_holder"><div id="blindRight" class="demo">{node}.afx.blindRight (binded)</div></div>
+    <div class="demo_holder"><div id="blindLeft" class="demo">{node}.afx.blindLeft (binded)</div></div>
+    <div class="demo_holder"><div id="fold" class="demo" >{node}.afx.fold</div></div>
+    <div class="demo_holder"><div id="unFold" class="demo">{node}.afx.unFold</div></div>
+
+    <div class="demo_holder"><div id="shakeLR" class="demo">{node}.afx.shakeLR</div></div>
+    <div class="demo_holder"><div id="shakeTB" class="demo">{node}.afx.shakeTB</div></div>
+    <div class="demo_holder"><div id="drop" class="demo">{node}.afx.drop</div></div>
+    <div class="demo_holder"><div id="pulse" class="demo">{node}.afx.pulse</div></div>
+    <div class="demo_holder"><div id="shrink" class="demo">{node}.afx.shrink</div></div>
+    <div class="demo_holder"><div id="grow" class="demo">{node}.afx.grow</div></div>
+
+    <div class="demo_holder"><div id="tv" class="demo">{node}.afx.tv</div></div>
+    <div class="demo_holder"><div id="puff" class="demo">{node}.afx.puff</div></div>
+    <div class="demo_holder"><div id="pagePuff" class="demo">{node}.afx.pagePuff</div></div>
+    <div class="demo_holder"><div id="chain" class="demo">{node}.afx - chain of events: .highlight, .pulse, .shakeLR, .fold</div></div>
+
+	
+	<script type="text/javascript"> 
+		(function() { 
+			YUI({ modules: { "afx-node-plugin": { fullpath: "../afx-node-plugin-min.js" } } }).use( "node", "anim", function(Y) { 
+				Y.use("afx-node-plugin", function(Y) {  
+					Y.all(".demo").on("click", function() { 
+						//Plugin to the node with the AFX plugin
+						//This method is chainable and would probably use as such, but not for demo purposes
+						this.plug(Y.plugin.NodeAFX); 
+						
+						//Just used the node id as the method call - probably a little lazy (there are so many different ways to select a node it doesn't really matter)
+						var id = this.get("id");
+						switch(id) { 
+							case "chain":
+							this.afx.highlight(function() { 
+								this.afx.pulse(function() { 
+									this.afx.shakeLR(function() { 
+										this.afx.fold();
+									});
+								});
+							});
+							break; 
+							case "blindUp":
+							case "blindLeft":
+							case "fade":
+							case "fold": 
+							case "shrink":
+							case "tv":
+							this.afx[id]( function() { this.afx.appear(); }); 
+							default:
+							this.afx[id](); 
+							break;
+						}
+					});
+				});
+			});
+		})();
+	</script>
+	
+</body>
+
+</html>
+
